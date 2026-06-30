@@ -27,7 +27,11 @@ from unittest import mock
 import torch
 
 from sglang.srt.environ import envs
-from sglang.srt.mem_cache.hicache_storage import HiCacheFile, HiCacheStorageConfig, MetadataCache
+from sglang.srt.mem_cache.hicache_storage import (
+    HiCacheFile,
+    HiCacheStorageConfig,
+    MetadataCache,
+)
 from sglang.srt.mem_cache.storage.file.lru_file_evictor import _parse_size_to_bytes
 from sglang.test.test_utils import CustomTestCase
 
@@ -485,11 +489,11 @@ class TestHiCacheFileMetadataIntegration(HiCacheFileLRUTestBase):
             extra_config={"metadata_ttl": 5.0, "enable_metadata_cache": True},
         )
         suffix = f"_seedmodel_0_1"
-        
+
         # Pre-create a suffixed bin file on disk
         with open(os.path.join(d, f"k1{suffix}.bin"), "wb") as f:
             f.write(b"data")
-            
+
         b = HiCacheFile(cfg, file_path=d)
         # It should be found in metadata cache on startup
         self.assertTrue(b.metadata_cache.contains(f"k1{suffix}"))
@@ -497,12 +501,12 @@ class TestHiCacheFileMetadataIntegration(HiCacheFileLRUTestBase):
     def test_write_and_read_populates_cache(self):
         b = self.make_backend(metadata_ttl=5.0, enable_metadata_cache=True)
         suffix = b.config_suffix
-        
+
         self.assertFalse(b.metadata_cache.contains(f"k1{suffix}"))
         b.set("k1", _t(50))
         # After set, it must be in the metadata cache
         self.assertTrue(b.metadata_cache.contains(f"k1{suffix}"))
-        
+
         # Evict manually from metadata cache and call get
         b.metadata_cache.clear()
         self.assertFalse(b.metadata_cache.contains(f"k1{suffix}"))
@@ -512,14 +516,19 @@ class TestHiCacheFileMetadataIntegration(HiCacheFileLRUTestBase):
 
     def test_eviction_removes_from_metadata_cache(self):
         # max_size=200, so setting three 100B tensors will evict the oldest
-        b = self.make_backend(max_size="200", eviction_ratio=1.0, metadata_ttl=-1.0, enable_metadata_cache=True)
+        b = self.make_backend(
+            max_size="200",
+            eviction_ratio=1.0,
+            metadata_ttl=-1.0,
+            enable_metadata_cache=True,
+        )
         suffix = b.config_suffix
-        
+
         b.set("k1", _t(100))
         b.set("k2", _t(100))
         self.assertTrue(b.metadata_cache.contains(f"k1{suffix}"))
         self.assertTrue(b.metadata_cache.contains(f"k2{suffix}"))
-        
+
         # Forces eviction of k1
         b.set("k3", _t(100))
         self.assertFalse(b.metadata_cache.contains(f"k1{suffix}"))
@@ -529,23 +538,27 @@ class TestHiCacheFileMetadataIntegration(HiCacheFileLRUTestBase):
     def test_batch_exists_bypass_scandir(self):
         b = self.make_backend(metadata_ttl=5.0, enable_metadata_cache=True)
         suffix = b.config_suffix
-        
+
         b.set("k1", _t(50))
         b.set("k2", _t(50))
-        
+
         # Now patch os.scandir and os.path.exists
-        with mock.patch("os.scandir") as mock_scandir, mock.patch("os.path.exists") as mock_exists:
+        with mock.patch("os.scandir") as mock_scandir, mock.patch(
+            "os.path.exists"
+        ) as mock_exists:
             mock_exists.return_value = True
-            
+
             # batch_exists_v2 for k1 and k2 should hit the metadata cache and NOT call os.scandir or os.path.exists
             res = b.batch_exists_v2(["k1", "k2"])
             self.assertEqual(res.kv_hit_pages, 2)
             mock_scandir.assert_not_called()
             mock_exists.assert_not_called()
-            
+
             # Querying "k3" (miss) should fall back to os.path.exists once but still NOT call os.scandir
             res = b.batch_exists_v2(["k3"])
-            self.assertEqual(res.kv_hit_pages, 1) # since mock_exists returns True, k3 exists physically
+            self.assertEqual(
+                res.kv_hit_pages, 1
+            )  # since mock_exists returns True, k3 exists physically
             mock_scandir.assert_not_called()
             mock_exists.assert_called_once()
 

@@ -387,7 +387,9 @@ class HiCacheFile(HiCacheStorage):
         if storage_config.extra_config:
             enable_cache_raw = storage_config.extra_config.get("enable_metadata_cache")
         if enable_cache_raw is None:
-            enable_cache_raw = envs.SGLANG_HICACHE_FILE_BACKEND_ENABLE_METADATA_CACHE.get()
+            enable_cache_raw = (
+                envs.SGLANG_HICACHE_FILE_BACKEND_ENABLE_METADATA_CACHE.get()
+            )
 
         self.enable_metadata_cache = bool(enable_cache_raw)
 
@@ -416,7 +418,9 @@ class HiCacheFile(HiCacheStorage):
             tp_rank=tp_rank,
             is_mla_model=is_mla_model,
             extra_config=storage_config.extra_config,
-            on_evict=self.metadata_cache.remove if self.metadata_cache is not None else None,
+            on_evict=(
+                self.metadata_cache.remove if self.metadata_cache is not None else None
+            ),
         )
 
     def _get_suffixed_key(self, key: str) -> str:
